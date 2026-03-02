@@ -1,0 +1,56 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_and_test:
+    name: Build and Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install macOS Dependencies (OpenGL, CoreAudio)
+      if: runner.os == 'macOS'
+      run: |
+        # Apple frameworks are natively available most of the time via Xcode runner
+        # but libsdl2 or equivalents might be needed if winit fails. Standard winit handles it well.
+
+    - name: Install Linux Dependencies (ALSA, X11, Wayland)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev pkg-config libx11-dev libwayland-dev libxkbcommon-dev
+
+    - name: Set up Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache dependencies
+      uses: Swatinem/rust-cache@v2
+
+    - name: Check Formatting
+      run: cargo fmt --all -- --check
+      continue-on-error: true
+
+    - name: Run Clippy Linter
+      run: |
+        cargo clippy --all-targets --all-features -- -D warnings
+      continue-on-error: true
+
+    - name: Build Game Executable
+      run: cargo build --release --all-features
+
+    - name: Run Game Tests
+      run: cargo test --all-features
