@@ -9,9 +9,17 @@ Standard commands live in `README.md` and `.github/workflows/ci.yml`; the notes 
 only cover non-obvious, environment-specific caveats.
 
 ### Toolchain
-- The crate uses `edition = "2024"`, which requires Rust **>= 1.85**. The VM's default
-  `rustup` toolchain is set to `stable` (currently 1.96). Do not switch to an older
-  pinned toolchain (the base image's 1.83 cannot compile this crate).
+- The crate uses `edition = "2024"`, which requires Rust **>= 1.85**. The base image's
+  pinned 1.83 cannot compile this crate, so it must not be used.
+- The VM snapshot bakes in Rust **nightly** as the default `rustup` toolchain (the
+  onboarded preference); `stable` is also installed as a fallback. The project builds and
+  tests fine on both. On nightly you'll see a non-blocking future-incompat warning from
+  the transitive dep `binrw` — it does not affect the build.
+- System dev libraries (`libasound2-dev`, `pkg-config`, `libx11-dev`, `libwayland-dev`,
+  `libxkbcommon-dev`) and the Mesa software-GL libs are baked into the snapshot too, so a
+  fresh agent does not need to reinstall them. The startup `install`/update script stays
+  minimal (`cargo fetch`); system packages and toolchains belong in the snapshot, not the
+  update script.
 
 ### Running the game (GUI) — required env vars
 - An X server is available on `DISPLAY=:1`. There is **no GPU**, so you must force the
