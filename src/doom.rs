@@ -1,7 +1,8 @@
 use aetheris::simulation::*;
 use glam::{Mat2, Vec2};
-use std::collections::HashMap;
 
+// Full DOOM mobj action set; unimplemented variants kept for state-table parity.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MonsterAction {
     Look,
@@ -35,6 +36,8 @@ pub struct MobjState {
     pub next_state: usize,
 }
 
+// Fields populate DEFAULT_THING_DEFS; not all are read at runtime yet.
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub struct ThingDef {
     pub health: f32,
@@ -48,6 +51,7 @@ pub struct ThingDef {
 }
 
 pub struct PuffThinker {
+    #[allow(dead_code)] // set at spawn; retained for future puff positioning
     pub position: glam::Vec2,
     pub timer: i32,
 }
@@ -136,8 +140,7 @@ impl Thinker for ProjectileThinker {
                         if self.damage >= 100.0 {
                             let bfg_origin = self
                                 .owner_thing_idx
-                                .map(|idx| world.things.get(idx).map(|t| t.position))
-                                .flatten()
+                                .and_then(|idx| world.things.get(idx).map(|t| t.position))
                                 .unwrap_or(closest);
                             for i in 0..40 {
                                 let angle_offset =
@@ -224,10 +227,10 @@ impl Thinker for ProjectileThinker {
                     if i == self.thing_idx {
                         continue;
                     }
-                    if let Some(owner) = self.owner_thing_idx {
-                        if i == owner {
-                            continue;
-                        }
+                    if let Some(owner) = self.owner_thing_idx
+                        && i == owner
+                    {
+                        continue;
                     }
 
                     if (t.is_monster() || t.is_barrel())
@@ -295,53 +298,58 @@ impl Thinker for ProjectileThinker {
     fn on_wake(&mut self, _thing_idx: usize) {}
 }
 
-use aetheris::simulation::*;
 use std::collections::HashSet;
 
-// Monster Type Constants
-pub const MONSTER_IMP: u16 = 3001;
-pub const MONSTER_DEMON: u16 = 3002;
-pub const MONSTER_BARON: u16 = 3003;
-pub const MONSTER_ZOMBIEMAN: u16 = 3004;
-pub const MONSTER_CACODEMON: u16 = 3005;
-pub const MONSTER_LOST_SOUL: u16 = 3006;
-pub const MONSTER_SERGEANT: u16 = 9;
+// DOOM mobj type constants (public reference table for modding/tests).
+#[allow(dead_code)]
+mod mobj_type_constants {
+    // Monster Type Constants
+    pub const MONSTER_IMP: u16 = 3001;
+    pub const MONSTER_DEMON: u16 = 3002;
+    pub const MONSTER_BARON: u16 = 3003;
+    pub const MONSTER_ZOMBIEMAN: u16 = 3004;
+    pub const MONSTER_CACODEMON: u16 = 3005;
+    pub const MONSTER_LOST_SOUL: u16 = 3006;
+    pub const MONSTER_SERGEANT: u16 = 9;
 
-// Weapon/Item Type Constants
-pub const ITEM_SHOTGUN: u16 = 2001;
-pub const ITEM_CHAINGUN: u16 = 2002;
-pub const ITEM_ROCKET_LAUNCHER: u16 = 2003;
-pub const ITEM_PLASMA_RIFLE: u16 = 2004;
-pub const ITEM_CHAINSAW: u16 = 2005;
-pub const ITEM_BFG9000: u16 = 2006;
-pub const ITEM_CLIP: u16 = 2007;
-pub const ITEM_SHELLS: u16 = 2008;
-pub const ITEM_ROCKETS: u16 = 2010;
-pub const ITEM_STIMPACK: u16 = 2011;
-pub const ITEM_MEDIKIT: u16 = 2012;
-pub const ITEM_SOULSPHERE: u16 = 2013;
-pub const ITEM_HEALTH_BONUS: u16 = 2014;
-pub const ITEM_ARMOR_BONUS: u16 = 2015;
-pub const ITEM_GREEN_ARMOR: u16 = 2018;
-pub const ITEM_BLUE_ARMOR: u16 = 2019;
-pub const ITEM_INVULN: u16 = 2022;
-pub const ITEM_BERSERK: u16 = 2023;
-pub const ITEM_INVIS: u16 = 2024;
-pub const ITEM_RADSUIT: u16 = 2025;
-pub const ITEM_MAP: u16 = 2026;
+    // Weapon/Item Type Constants
+    pub const ITEM_SHOTGUN: u16 = 2001;
+    pub const ITEM_CHAINGUN: u16 = 2002;
+    pub const ITEM_ROCKET_LAUNCHER: u16 = 2003;
+    pub const ITEM_PLASMA_RIFLE: u16 = 2004;
+    pub const ITEM_CHAINSAW: u16 = 2005;
+    pub const ITEM_BFG9000: u16 = 2006;
+    pub const ITEM_CLIP: u16 = 2007;
+    pub const ITEM_SHELLS: u16 = 2008;
+    pub const ITEM_ROCKETS: u16 = 2010;
+    pub const ITEM_STIMPACK: u16 = 2011;
+    pub const ITEM_MEDIKIT: u16 = 2012;
+    pub const ITEM_SOULSPHERE: u16 = 2013;
+    pub const ITEM_HEALTH_BONUS: u16 = 2014;
+    pub const ITEM_ARMOR_BONUS: u16 = 2015;
+    pub const ITEM_GREEN_ARMOR: u16 = 2018;
+    pub const ITEM_BLUE_ARMOR: u16 = 2019;
+    pub const ITEM_INVULN: u16 = 2022;
+    pub const ITEM_BERSERK: u16 = 2023;
+    pub const ITEM_INVIS: u16 = 2024;
+    pub const ITEM_RADSUIT: u16 = 2025;
+    pub const ITEM_MAP: u16 = 2026;
 
-// Key Type Constants
-pub const KEY_BLUE: u16 = 5;
-pub const KEY_YELLOW: u16 = 6;
-pub const KEY_RED: u16 = 13;
-pub const KEY_BLUE_SKULL: u16 = 40;
-pub const KEY_YELLOW_SKULL: u16 = 39;
-pub const KEY_RED_SKULL: u16 = 38;
+    // Key Type Constants
+    pub const KEY_BLUE: u16 = 5;
+    pub const KEY_YELLOW: u16 = 6;
+    pub const KEY_RED: u16 = 13;
+    pub const KEY_BLUE_SKULL: u16 = 40;
+    pub const KEY_YELLOW_SKULL: u16 = 39;
+    pub const KEY_RED_SKULL: u16 = 38;
 
-// Effect/Projectile Type Constants
-pub const EFFECT_BLOOD: u16 = 9999;
-pub const EFFECT_BLOOD_GREEN: u16 = 9997;
-pub const EFFECT_PUFF: u16 = 9998;
+    // Effect/Projectile Type Constants
+    pub const EFFECT_BLOOD: u16 = 9999;
+    pub const EFFECT_BLOOD_GREEN: u16 = 9997;
+    pub const EFFECT_PUFF: u16 = 9998;
+}
+#[allow(unused_imports)] // re-exported DOOM mobj type table for external callers
+pub use mobj_type_constants::*;
 
 // Doom-style RNG and Pain Chance
 // Doom uses a 256-byte lookup table with a prng index that advances each call
@@ -377,6 +385,7 @@ pub fn p_random() -> u8 {
 }
 
 /// Reset the RNG to a known state for testing
+#[allow(dead_code)]
 pub fn reset_rng() {
     unsafe {
         PRND_INDEX = 0;
@@ -384,29 +393,12 @@ pub fn reset_rng() {
 }
 
 /// Reset the RNG to a specific state for deterministic testing
+#[allow(dead_code)]
 pub fn reset_rng_to(index: usize) {
     unsafe {
         PRND_INDEX = index % 256;
     }
 }
-
-/// Pain chance values (0-255) for each monster type
-/// Higher = more likely to enter pain state when hit
-// Helper removed in favor of Thing::pain_chance
-/*
-pub fn pain_chance_for_kind(kind: u16) -> u8 {
-    match kind {
-        3001 => 128, // Imp: 50% chance
-        3002 => 180, // Demon: ~70% chance
-        3003 => 50,  // Baron: ~20% chance
-        3004 => 200, // Zombieman: ~78% chance
-        3005 => 128, // Cacodemon: 50% chance
-        3006 => 255, // Lost Soul: always (100%)
-        9 => 170,    // Sergeant: ~66% chance
-        _ => 100,    // Default: ~39% chance
-    }
-}
-*/
 
 // Doom-specific Thing methods
 pub trait DoomThingExt {
@@ -415,9 +407,13 @@ pub trait DoomThingExt {
     fn is_pickup(&self) -> bool;
     fn is_barrel(&self) -> bool;
     fn is_effect(&self) -> bool;
+    #[allow(dead_code)]
     fn initial_health(k: u16, world: &WorldState) -> f32;
+    #[allow(dead_code)]
     fn pain_chance(k: u16, world: &WorldState) -> u8;
+    #[allow(dead_code)]
     fn sprite_name<'a>(&self, world: &'a WorldState) -> &'a str;
+    #[allow(dead_code)]
     fn frame_char(&self, world: &WorldState) -> char;
 }
 
@@ -439,7 +435,7 @@ impl DoomThingExt for Thing {
         self.kind == 2035
     }
     fn is_effect(&self) -> bool {
-        matches!(self.kind, 9997 | 9998 | 9999)
+        matches!(self.kind, 9997..=9999)
     }
     fn initial_health(_k: u16, _world: &WorldState) -> f32 {
         DEFAULT_THING_DEFS
@@ -483,6 +479,7 @@ pub struct MonsterThinker {
     pub just_entered_state: bool, // True when state was just set, action should fire
 }
 
+#[allow(dead_code)] // state-table index 0 (null state)
 pub const S_NULL: usize = 0;
 // Zombieman States
 pub const S_POSS_STND: usize = 1;
@@ -3550,12 +3547,11 @@ impl MonsterThinker {
                 .find(|&&(k, _)| k == other.kind)
                 .map(|&(_, d)| d.radius)
                 .unwrap_or(20.0);
-            if (trial - other.position).length() < radius + other_radius {
-                if (trial - other.position).length()
+            if (trial - other.position).length() < radius + other_radius
+                && (trial - other.position).length()
                     < (monster.position - other.position).length() - 0.01
-                {
-                    return false;
-                }
+            {
+                return false;
             }
         }
 
@@ -3573,18 +3569,18 @@ impl MonsterThinker {
                 // Only block if we are actually moving geometrically closer to the wall segment
                 if dist < dist_old - 0.01 {
                     let mut should_block = true;
-                    if line.is_portal() {
-                        if let (Some(fs), Some(bs)) = (line.sector_front, line.sector_back) {
-                            let front = &world.sectors[fs];
-                            let back = &world.sectors[bs];
-                            let lowest_ceiling = front.ceiling_height.min(back.ceiling_height);
-                            let highest_floor = front.floor_height.max(back.floor_height);
-                            let gap = lowest_ceiling - highest_floor;
-                            let step_up = highest_floor - monster.z;
+                    if line.is_portal()
+                        && let (Some(fs), Some(bs)) = (line.sector_front, line.sector_back)
+                    {
+                        let front = &world.sectors[fs];
+                        let back = &world.sectors[bs];
+                        let lowest_ceiling = front.ceiling_height.min(back.ceiling_height);
+                        let highest_floor = front.floor_height.max(back.floor_height);
+                        let gap = lowest_ceiling - highest_floor;
+                        let step_up = highest_floor - monster.z;
 
-                            if gap >= 56.0 && step_up <= STEP_HEIGHT {
-                                should_block = false;
-                            }
+                        if gap >= 56.0 && step_up <= STEP_HEIGHT {
+                            should_block = false;
                         }
                     }
                     if should_block {
@@ -3639,10 +3635,10 @@ impl Thinker for MonsterThinker {
                 };
                 self.set_state(pain_state, STATES);
 
-                if let Some(inflictor) = inflictor_idx {
-                    if inflictor != self.thing_idx {
-                        self.target_thing_idx = Some(inflictor);
-                    }
+                if let Some(inflictor) = inflictor_idx
+                    && inflictor != self.thing_idx
+                {
+                    self.target_thing_idx = Some(inflictor);
                 }
             }
         }
@@ -3721,21 +3717,19 @@ impl Thinker for MonsterThinker {
             self.tics -= 1;
         }
 
-        if self.tics == 0 {
-            if self.state_idx < STATES.len() {
-                let next = STATES[self.state_idx].next_state;
-                self.set_state(next, STATES);
-            }
+        if self.tics == 0 && self.state_idx < STATES.len() {
+            let next = STATES[self.state_idx].next_state;
+            self.set_state(next, STATES);
         }
 
         // Fire action only on state entry (matching vanilla Doom behavior).
         // In Doom, P_SetMobjState calls the action function once when the state is set.
         if self.just_entered_state {
             self.just_entered_state = false;
-            if self.state_idx < STATES.len() {
-                if let Some(action) = STATES[self.state_idx].action {
-                    self.execute_action(action, world, &mut commands);
-                }
+            if self.state_idx < STATES.len()
+                && let Some(action) = STATES[self.state_idx].action
+            {
+                self.execute_action(action, world, &mut commands);
             }
         }
 
@@ -3750,29 +3744,29 @@ impl Thinker for MonsterThinker {
         });
 
         // Gravity and step logic for ALL ground monsters
-        if !monster.is_flying() {
-            if let Some(s_idx) = world.find_sector_at(monster.position) {
-                let floor_z = world.sectors[s_idx].floor_height;
-                let mut z_snap = 0.0;
-                if monster.z > floor_z {
-                    // Fall down
-                    z_snap = -8.0;
-                    if monster.z + z_snap < floor_z {
-                        z_snap = floor_z - monster.z;
-                    }
-                } else if monster.z < floor_z {
-                    // Step up climbing
+        if !monster.is_flying()
+            && let Some(s_idx) = world.find_sector_at(monster.position)
+        {
+            let floor_z = world.sectors[s_idx].floor_height;
+            let mut z_snap = 0.0;
+            if monster.z > floor_z {
+                // Fall down
+                z_snap = -8.0;
+                if monster.z + z_snap < floor_z {
                     z_snap = floor_z - monster.z;
                 }
+            } else if monster.z < floor_z {
+                // Step up climbing
+                z_snap = floor_z - monster.z;
+            }
 
-                if z_snap != 0.0 {
-                    commands.push(WorldCommand::ModifyThing {
-                        thing_idx: self.thing_idx,
-                        pos_delta: Vec2::ZERO,
-                        z_delta: z_snap,
-                        angle: monster.angle,
-                    });
-                }
+            if z_snap != 0.0 {
+                commands.push(WorldCommand::ModifyThing {
+                    thing_idx: self.thing_idx,
+                    pos_delta: Vec2::ZERO,
+                    z_delta: z_snap,
+                    angle: monster.angle,
+                });
             }
         }
 
@@ -4038,27 +4032,25 @@ impl DoomWorldExt for WorldState {
                 let thing = &self.things[t_idx];
                 if thing.is_monster() && thing.health > 0.0 && !thing.picked_up {
                     let sidx = self.find_subsector(thing.position.x, thing.position.y);
-                    if let Some(ss) = self.subsectors.get(sidx) {
-                        if let Some(seg) = self.segs.get(ss.first_seg_idx) {
-                            if let Some(tsid) = self.linedefs[seg.linedef_idx].sector_front {
-                                if tsid == sid {
-                                    for i in 0..self.thinkers.len() {
-                                        let mut thinker = self.thinkers.remove(i);
-                                        thinker.on_wake(t_idx);
-                                        self.thinkers.insert(i, thinker);
-                                    }
-                                }
-                            }
+                    if let Some(ss) = self.subsectors.get(sidx)
+                        && let Some(seg) = self.segs.get(ss.first_seg_idx)
+                        && let Some(tsid) = self.linedefs[seg.linedef_idx].sector_front
+                        && tsid == sid
+                    {
+                        for i in 0..self.thinkers.len() {
+                            let mut thinker = self.thinkers.remove(i);
+                            thinker.on_wake(t_idx);
+                            self.thinkers.insert(i, thinker);
                         }
                     }
                 }
             }
 
-            if h > 0 {
-                if let Some(neighbors) = self.adjacent_sectors.get(sid) {
-                    for &neighbor in neighbors {
-                        queue.push((neighbor, h - 1));
-                    }
+            if h > 0
+                && let Some(neighbors) = self.adjacent_sectors.get(sid)
+            {
+                for &neighbor in neighbors {
+                    queue.push((neighbor, h - 1));
                 }
             }
         }
@@ -4078,7 +4070,7 @@ impl DoomWorldExt for WorldState {
             return;
         }
 
-        if self.menu_state != MenuState::None && self.frame_count % 35 == 0 {
+        if self.menu_state != MenuState::None && self.frame_count.is_multiple_of(35) {
             log::info!("MENU ACTIVE: Press ESC/ENTER to start map or use ARROWS/WASD to navigate.");
         }
 
@@ -4162,18 +4154,18 @@ impl DoomWorldExt for WorldState {
                     let mut should_block = true;
 
                     // Check portal (door/window) passage
-                    if line.is_portal() {
-                        if let (Some(fs), Some(bs)) = (line.sector_front, line.sector_back) {
-                            let front = &self.sectors[fs];
-                            let back = &self.sectors[bs];
-                            let lowest_ceiling = front.ceiling_height.min(back.ceiling_height);
-                            let highest_floor = front.floor_height.max(back.floor_height);
-                            let gap = lowest_ceiling - highest_floor;
-                            let step_up = highest_floor - next_z;
+                    if line.is_portal()
+                        && let (Some(fs), Some(bs)) = (line.sector_front, line.sector_back)
+                    {
+                        let front = &self.sectors[fs];
+                        let back = &self.sectors[bs];
+                        let lowest_ceiling = front.ceiling_height.min(back.ceiling_height);
+                        let highest_floor = front.floor_height.max(back.floor_height);
+                        let gap = lowest_ceiling - highest_floor;
+                        let step_up = highest_floor - next_z;
 
-                            if gap >= 56.0 && step_up <= STEP_HEIGHT {
-                                should_block = false;
-                            }
+                        if gap >= 56.0 && step_up <= STEP_HEIGHT {
+                            should_block = false;
                         }
                     }
 
@@ -4226,7 +4218,7 @@ impl DoomWorldExt for WorldState {
                 let min_dist = PLAYER_RADIUS + 20.0;
 
                 if d < min_dist {
-                    let mut push_dir = if d < 0.001 {
+                    let push_dir = if d < 0.001 {
                         Vec2::new(1.0, 0.0) // Arbitrary push if exactly stacked
                     } else {
                         d_v / d
@@ -4251,33 +4243,33 @@ impl DoomWorldExt for WorldState {
         }
 
         // Z-Physics (Gravity & Step Up) & Environmental Effects
-        if !self.nodes.is_empty() {
-            if let Some(sid) = self.find_sector_at(next_pos) {
-                let sector = &mut self.sectors[sid];
+        if !self.nodes.is_empty()
+            && let Some(sid) = self.find_sector_at(next_pos)
+        {
+            let sector = &mut self.sectors[sid];
 
-                let target_z = sector.floor_height;
-                let floor_diff = target_z - next_z;
+            let target_z = sector.floor_height;
+            let floor_diff = target_z - next_z;
 
-                // Step UP: Floor is higher but climbable (within STEP_HEIGHT)
-                if floor_diff > 0.0 && floor_diff <= STEP_HEIGHT {
-                    next_z = target_z;
-                // Step DOWN or level: Floor is at or below player - apply gravity
-                } else if floor_diff <= 0.0 {
-                    if next_z > target_z + 0.1 {
-                        next_z -= 2.0;
-                        if next_z < target_z {
-                            next_z = target_z;
-                        }
-                    } else {
+            // Step UP: Floor is higher but climbable (within STEP_HEIGHT)
+            if floor_diff > 0.0 && floor_diff <= STEP_HEIGHT {
+                next_z = target_z;
+            // Step DOWN or level: Floor is at or below player - apply gravity
+            } else if floor_diff <= 0.0 {
+                if next_z > target_z + 0.1 {
+                    next_z -= 2.0;
+                    if next_z < target_z {
                         next_z = target_z;
                     }
-
-                    // Damaging Floors and Secrets moved to unified handlers
-                    // BLOCKED: Floor is too high to climb
                 } else {
-                    next_pos = old_pos;
-                    next_velocity = Vec2::ZERO;
+                    next_z = target_z;
                 }
+
+                // Damaging Floors and Secrets moved to unified handlers
+                // BLOCKED: Floor is too high to climb
+            } else {
+                next_pos = old_pos;
+                next_velocity = Vec2::ZERO;
             }
         }
 
@@ -4335,26 +4327,26 @@ impl DoomWorldExt for WorldState {
             WeaponState::Ready => {
                 // Auto weapon swap if current is out of ammo
                 let current_ammo_idx = weapon_ammo_type(self.player.current_weapon);
-                if let Some(idx) = current_ammo_idx {
-                    if self.player.ammo[idx] == 0 {
-                        for next_w in [
-                            WeaponType::BFG9000,
-                            WeaponType::PlasmaRifle,
-                            WeaponType::RocketLauncher,
-                            WeaponType::Shotgun,
-                            WeaponType::Chaingun,
-                            WeaponType::Pistol,
-                            WeaponType::Chainsaw,
-                            WeaponType::Fist,
-                        ] {
-                            if self.player.owned_weapons[next_w as usize] {
-                                let next_ammo_idx = weapon_ammo_type(next_w);
-                                if next_ammo_idx.is_none()
-                                    || self.player.ammo[next_ammo_idx.unwrap()] > 0
-                                {
-                                    next_weapon = next_w;
-                                    break;
-                                }
+                if let Some(idx) = current_ammo_idx
+                    && self.player.ammo[idx] == 0
+                {
+                    for next_w in [
+                        WeaponType::BFG9000,
+                        WeaponType::PlasmaRifle,
+                        WeaponType::RocketLauncher,
+                        WeaponType::Shotgun,
+                        WeaponType::Chaingun,
+                        WeaponType::Pistol,
+                        WeaponType::Chainsaw,
+                        WeaponType::Fist,
+                    ] {
+                        if self.player.owned_weapons[next_w as usize] {
+                            let next_ammo_idx = weapon_ammo_type(next_w);
+                            if next_ammo_idx.is_none()
+                                || self.player.ammo[next_ammo_idx.unwrap()] > 0
+                            {
+                                next_weapon = next_w;
+                                break;
                             }
                         }
                     }
@@ -4660,7 +4652,7 @@ impl DoomWorldExt for WorldState {
 
                 if dist_to_line < best_dist {
                     let t = (p_pos - v1).dot(line_vec) / line_len_sq;
-                    if t >= -0.1 && t <= 1.1 {
+                    if (-0.1..=1.1).contains(&t) {
                         best_dist = dist_to_line;
                         best_line = Some(idx);
                     }
@@ -4717,18 +4709,18 @@ impl DoomWorldExt for WorldState {
             // Apply Gravity to all non-flying things
             if !t.is_effect() && t.health > -100.0 {
                 // Determine floor height at thing position
-                if let Some(sid) = sector_ids[i] {
-                    if sid < self.sectors.len() {
-                        let floor_z = self.sectors[sid].floor_height;
-                        if t.z > floor_z + 0.1 {
-                            t.z -= 4.0; // Gravity fall rate
-                            if t.z < floor_z {
-                                t.z = floor_z;
-                            }
-                        } else if t.z < floor_z - 0.1 {
-                            // Snap up (step up) for monsters/items if they are on stairs
+                if let Some(sid) = sector_ids[i]
+                    && sid < self.sectors.len()
+                {
+                    let floor_z = self.sectors[sid].floor_height;
+                    if t.z > floor_z + 0.1 {
+                        t.z -= 4.0; // Gravity fall rate
+                        if t.z < floor_z {
                             t.z = floor_z;
                         }
+                    } else if t.z < floor_z - 0.1 {
+                        // Snap up (step up) for monsters/items if they are on stairs
+                        t.z = floor_z;
                     }
                 }
             }
@@ -4844,15 +4836,13 @@ impl DoomWorldExt for WorldState {
                                                 final_ceil_delta = 0.0; // Stop movement
                                             }
                                         }
-                                        SectorAction::Crusher { damage, .. } => {
-                                            if health > 0.0 {
-                                                crush_damage = *damage;
-                                                // Clamp to thing top
-                                                let clamp_delta = (z + height) - s.ceiling_height;
-                                                if clamp_delta > final_ceil_delta {
-                                                    // Usually negative when moving down
-                                                    final_ceil_delta = clamp_delta;
-                                                }
+                                        SectorAction::Crusher { damage, .. } if health > 0.0 => {
+                                            crush_damage = *damage;
+                                            // Clamp to thing top
+                                            let clamp_delta = (z + height) - s.ceiling_height;
+                                            if clamp_delta > final_ceil_delta {
+                                                // Usually negative when moving down
+                                                final_ceil_delta = clamp_delta;
                                             }
                                         }
                                         _ => {}
@@ -4867,10 +4857,8 @@ impl DoomWorldExt for WorldState {
                         s.floor_height += final_floor_delta;
                         s.ceiling_height += final_ceil_delta;
 
-                        if reverse_door {
-                            if let SectorAction::Door { state, .. } = &mut s.action {
-                                *state = DoorState::Opening;
-                            }
+                        if reverse_door && let SectorAction::Door { state, .. } = &mut s.action {
+                            *state = DoorState::Opening;
                         }
                     }
 
@@ -5316,16 +5304,15 @@ impl DoomWorldExt for WorldState {
                 }
                 WorldCommand::DamageThingsInSector { sector_idx, amount } => {
                     // Check player
-                    if let Some(sid) = self.find_sector_at(self.player.position) {
-                        if sid == sector_idx {
-                            if self.player.invuln_timer == 0 {
-                                let absorbed = (amount * 0.333).min(self.player.armor);
-                                self.player.armor -= absorbed;
-                                self.player.health -= amount - absorbed;
-                                if self.player.damage_flash < 0.1 {
-                                    self.player.damage_flash = 0.5;
-                                }
-                            }
+                    if let Some(sid) = self.find_sector_at(self.player.position)
+                        && sid == sector_idx
+                        && self.player.invuln_timer == 0
+                    {
+                        let absorbed = (amount * 0.333).min(self.player.armor);
+                        self.player.armor -= absorbed;
+                        self.player.health -= amount - absorbed;
+                        if self.player.damage_flash < 0.1 {
+                            self.player.damage_flash = 0.5;
                         }
                     }
 
@@ -5335,10 +5322,10 @@ impl DoomWorldExt for WorldState {
                         if !t.is_monster() || t.health <= 0.0 || t.picked_up {
                             continue;
                         }
-                        if let Some(sid) = self.find_sector_at(t.position) {
-                            if sid == sector_idx {
-                                impacts.push((i, t.kind));
-                            }
+                        if let Some(sid) = self.find_sector_at(t.position)
+                            && sid == sector_idx
+                        {
+                            impacts.push((i, t.kind));
                         }
                     }
                     for (idx, kind) in impacts {
@@ -5409,14 +5396,11 @@ impl DoomWorldExt for WorldState {
                     let p_dist = (self.player.position - center).length();
                     if p_dist < radius {
                         let p_dmg = damage * ((radius - p_dist) / radius);
-                        if p_dmg > 0.0 {
-                            if self.player.invuln_timer == 0 {
-                                let absorbed = (p_dmg * 0.333).min(self.player.armor);
-                                self.player.armor -= absorbed;
-                                self.player.health -= p_dmg - absorbed;
-                                self.player.damage_flash =
-                                    (self.player.damage_flash + 0.5).min(1.0);
-                            }
+                        if p_dmg > 0.0 && self.player.invuln_timer == 0 {
+                            let absorbed = (p_dmg * 0.333).min(self.player.armor);
+                            self.player.armor -= absorbed;
+                            self.player.health -= p_dmg - absorbed;
+                            self.player.damage_flash = (self.player.damage_flash + 0.5).min(1.0);
                         }
                     }
                 }
@@ -5499,12 +5483,11 @@ impl DoomWorldExt for WorldState {
                     if !self.nodes.is_empty() {
                         let sidx =
                             self.find_subsector(self.player.position.x, self.player.position.y);
-                        if let Some(ss) = self.subsectors.get(sidx) {
-                            if let Some(seg) = self.segs.get(ss.first_seg_idx) {
-                                if let Some(sid) = self.linedefs[seg.linedef_idx].sector_front {
-                                    self.player.z = self.sectors[sid].floor_height;
-                                }
-                            }
+                        if let Some(ss) = self.subsectors.get(sidx)
+                            && let Some(seg) = self.segs.get(ss.first_seg_idx)
+                            && let Some(sid) = self.linedefs[seg.linedef_idx].sector_front
+                        {
+                            self.player.z = self.sectors[sid].floor_height;
                         }
                     }
                 }
@@ -5613,15 +5596,15 @@ impl DoomWorldExt for WorldState {
                 // DR Doors: If tag is 0, it affects the sector on the other side of the line.
                 // If tag is NOT 0, it affects all sectors with that tag.
                 if tag == 0 {
-                    if let Some(sid) = sector_back {
-                        if self.trigger_door(sid, speed, wait) {
-                            let sound = if speed > 4.0 { "DSBDOPN" } else { "DSDOROPN" };
-                            self.audio_events.push(AudioEvent {
-                                sound_id: sound.into(),
-                                position: Some(self.player.position),
-                                volume: 1.0,
-                            });
-                        }
+                    if let Some(sid) = sector_back
+                        && self.trigger_door(sid, speed, wait)
+                    {
+                        let sound = if speed > 4.0 { "DSBDOPN" } else { "DSDOROPN" };
+                        self.audio_events.push(AudioEvent {
+                            sound_id: sound.into(),
+                            position: Some(self.player.position),
+                            volume: 1.0,
+                        });
                     }
                 } else {
                     if self.do_door_tagged(tag, speed, wait) {
@@ -5649,14 +5632,14 @@ impl DoomWorldExt for WorldState {
                 if self.player.keys[1] {
                     let (speed, wait) = (2.0, 4.0);
                     if tag == 0 {
-                        if let Some(sid) = sector_back {
-                            if self.trigger_door(sid, speed, wait) {
-                                self.audio_events.push(AudioEvent {
-                                    sound_id: "DSDOROPN".into(),
-                                    position: Some(self.player.position),
-                                    volume: 1.0,
-                                });
-                            }
+                        if let Some(sid) = sector_back
+                            && self.trigger_door(sid, speed, wait)
+                        {
+                            self.audio_events.push(AudioEvent {
+                                sound_id: "DSDOROPN".into(),
+                                position: Some(self.player.position),
+                                volume: 1.0,
+                            });
                         }
                     } else {
                         if self.do_door_tagged(tag, speed, wait) {
@@ -5680,14 +5663,14 @@ impl DoomWorldExt for WorldState {
                 if self.player.keys[2] {
                     let (speed, wait) = (2.0, 4.0);
                     if tag == 0 {
-                        if let Some(sid) = sector_back {
-                            if self.trigger_door(sid, speed, wait) {
-                                self.audio_events.push(AudioEvent {
-                                    sound_id: "DSDOROPN".into(),
-                                    position: Some(self.player.position),
-                                    volume: 1.0,
-                                });
-                            }
+                        if let Some(sid) = sector_back
+                            && self.trigger_door(sid, speed, wait)
+                        {
+                            self.audio_events.push(AudioEvent {
+                                sound_id: "DSDOROPN".into(),
+                                position: Some(self.player.position),
+                                volume: 1.0,
+                            });
                         }
                     } else {
                         if self.do_door_tagged(tag, speed, wait) {
@@ -5711,14 +5694,14 @@ impl DoomWorldExt for WorldState {
                 if self.player.keys[0] {
                     let (speed, wait) = (2.0, 4.0);
                     if tag == 0 {
-                        if let Some(sid) = sector_back {
-                            if self.trigger_door(sid, speed, wait) {
-                                self.audio_events.push(AudioEvent {
-                                    sound_id: "DSDOROPN".into(),
-                                    position: Some(self.player.position),
-                                    volume: 1.0,
-                                });
-                            }
+                        if let Some(sid) = sector_back
+                            && self.trigger_door(sid, speed, wait)
+                        {
+                            self.audio_events.push(AudioEvent {
+                                sound_id: "DSDOROPN".into(),
+                                position: Some(self.player.position),
+                                volume: 1.0,
+                            });
                         }
                     } else {
                         if self.do_door_tagged(tag, speed, wait) {
@@ -5754,17 +5737,13 @@ impl DoomWorldExt for WorldState {
                         for t in &self.things {
                             if t.kind == 14 {
                                 let ss_idx = self.find_subsector(t.position.x, t.position.y);
-                                if let Some(ss) = self.subsectors.get(ss_idx) {
-                                    if let Some(seg) = self.segs.get(ss.first_seg_idx) {
-                                        if let Some(sid) =
-                                            self.linedefs[seg.linedef_idx].sector_front
-                                        {
-                                            if sid == s_idx {
-                                                best_dest = Some(t);
-                                                break;
-                                            }
-                                        }
-                                    }
+                                if let Some(ss) = self.subsectors.get(ss_idx)
+                                    && let Some(seg) = self.segs.get(ss.first_seg_idx)
+                                    && let Some(sid) = self.linedefs[seg.linedef_idx].sector_front
+                                    && sid == s_idx
+                                {
+                                    best_dest = Some(t);
+                                    break;
                                 }
                             }
                         }
@@ -5903,7 +5882,7 @@ impl DoomWorldExt for WorldState {
                         open_height: target,
                         close_height: floor,
                     };
-                    return true;
+                    true
                 } else {
                     // Closing
                     log::info!("DEBUG: Door closing in sector {}", sector_idx);
@@ -5914,7 +5893,7 @@ impl DoomWorldExt for WorldState {
                         open_height: ceil,
                         close_height: floor,
                     };
-                    return true;
+                    true
                 }
             }
             SectorAction::Door {
@@ -5932,7 +5911,7 @@ impl DoomWorldExt for WorldState {
                         open_height,
                         close_height,
                     };
-                    return true;
+                    true
                 }
                 DoorState::Closing => {
                     log::info!("DEBUG: Door reversing to open in sector {}", sector_idx);
@@ -5943,7 +5922,7 @@ impl DoomWorldExt for WorldState {
                         open_height,
                         close_height,
                     };
-                    return true;
+                    true
                 }
                 _ => {
                     log::info!(
@@ -5968,10 +5947,8 @@ impl DoomWorldExt for WorldState {
     fn do_door_tagged(&mut self, tag: u16, speed: f32, wait: f32) -> bool {
         let mut triggered = false;
         for i in 0..self.sectors.len() {
-            if self.sectors[i].tag == tag as i16 {
-                if self.trigger_door(i, speed, wait) {
-                    triggered = true;
-                }
+            if self.sectors[i].tag == tag as i16 && self.trigger_door(i, speed, wait) {
+                triggered = true;
             }
         }
         triggered
@@ -5979,33 +5956,33 @@ impl DoomWorldExt for WorldState {
 
     fn do_lift_tagged(&mut self, tag: u16) {
         for s in &mut self.sectors {
-            if s.tag == tag as i16 {
-                if let SectorAction::None = s.action {
-                    let target = s.floor_height - 72.0;
-                    s.action = SectorAction::Lift {
-                        state: LiftState::GoingDown,
-                        wait_timer: 3.0,
-                        speed: 3.0,
-                        low_height: target,
-                        high_height: s.floor_height,
-                    };
-                }
+            if s.tag == tag as i16
+                && let SectorAction::None = s.action
+            {
+                let target = s.floor_height - 72.0;
+                s.action = SectorAction::Lift {
+                    state: LiftState::GoingDown,
+                    wait_timer: 3.0,
+                    speed: 3.0,
+                    low_height: target,
+                    high_height: s.floor_height,
+                };
             }
         }
     }
 
     fn do_crusher_tagged(&mut self, tag: u16, speed: f32, damage: f32) {
         for s in &mut self.sectors {
-            if s.tag == tag as i16 {
-                if let SectorAction::None = s.action {
-                    s.action = SectorAction::Crusher {
-                        state: CrusherState::GoingDown,
-                        speed,
-                        low_height: s.floor_height + 8.0,
-                        high_height: s.ceiling_height,
-                        damage,
-                    };
-                }
+            if s.tag == tag as i16
+                && let SectorAction::None = s.action
+            {
+                s.action = SectorAction::Crusher {
+                    state: CrusherState::GoingDown,
+                    speed,
+                    low_height: s.floor_height + 8.0,
+                    high_height: s.ceiling_height,
+                    damage,
+                };
             }
         }
     }
@@ -6073,57 +6050,55 @@ impl DoomWorldExt for WorldState {
 
     fn update_environmental_damage(&mut self) {
         // 1. Secret Detection (Every frame)
-        if let Some(s_idx) = self.find_sector_at(self.player.position) {
-            if s_idx < self.sectors.len() {
-                let sector = &mut self.sectors[s_idx];
-                if sector.special_type == 9 && !sector.secret_found {
-                    sector.secret_found = true;
-                    self.secrets_found += 1;
-                    log::info!("SECRET FOUND in sector {}!", s_idx);
-                    self.hud_messages.push(HudMessage {
-                        text: "SECRET FOUND!".into(),
-                        timer: 2.0,
-                        color: [255, 255, 0],
-                    });
-                    self.audio_events.push(AudioEvent {
-                        sound_id: "DSGETPOW".into(),
-                        position: None,
-                        volume: 1.0,
-                    });
-                }
+        if let Some(s_idx) = self.find_sector_at(self.player.position)
+            && s_idx < self.sectors.len()
+        {
+            let sector = &mut self.sectors[s_idx];
+            if sector.special_type == 9 && !sector.secret_found {
+                sector.secret_found = true;
+                self.secrets_found += 1;
+                log::info!("SECRET FOUND in sector {}!", s_idx);
+                self.hud_messages.push(HudMessage {
+                    text: "SECRET FOUND!".into(),
+                    timer: 2.0,
+                    color: [255, 255, 0],
+                });
+                self.audio_events.push(AudioEvent {
+                    sound_id: "DSGETPOW".into(),
+                    position: None,
+                    volume: 1.0,
+                });
             }
         }
 
         // 2. Damage (Every 32 frames)
-        if self.frame_count % 32 != 0 {
+        if !self.frame_count.is_multiple_of(32) {
             return;
         }
 
         let mut damage_targets = Vec::new();
 
         // Check Player
-        if let Some(s_idx) = self.find_sector_at(self.player.position) {
-            if s_idx < self.sectors.len() {
-                let special = self.sectors[s_idx].special_type;
-                let damage = match special {
-                    5 => 10,
-                    7 => 5,
-                    16 => 20,
-                    4 => 20,
-                    11 => 20,
-                    _ => 0,
-                };
+        if let Some(s_idx) = self.find_sector_at(self.player.position)
+            && s_idx < self.sectors.len()
+        {
+            let special = self.sectors[s_idx].special_type;
+            let damage = match special {
+                5 => 10,
+                7 => 5,
+                16 => 20,
+                4 => 20,
+                11 => 20,
+                _ => 0,
+            };
 
-                if damage > 0 {
-                    if self.player.radsuit_timer == 0 {
-                        log::info!(
-                            "Player taking slime damage: {} (Sector Special {})",
-                            damage,
-                            special
-                        );
-                        damage_targets.push((true, 0, damage as f32));
-                    }
-                }
+            if damage > 0 && self.player.radsuit_timer == 0 {
+                log::info!(
+                    "Player taking slime damage: {} (Sector Special {})",
+                    damage,
+                    special
+                );
+                damage_targets.push((true, 0, damage as f32));
             }
         }
 
@@ -6132,22 +6107,22 @@ impl DoomWorldExt for WorldState {
             if t.health <= 0.0 || t.picked_up || (!t.is_monster() && !t.is_barrel()) {
                 continue;
             }
-            if let Some(s_idx) = self.find_sector_at(t.position) {
-                if s_idx < self.sectors.len() {
-                    let special = self.sectors[s_idx].special_type;
-                    let damage = match special {
-                        5 | 7 | 16 | 4 | 11 => 5,
-                        _ => 0,
-                    };
-                    if damage > 0 {
-                        log::info!(
-                            "Thing {} taking slime damage: {} (Sector Special {})",
-                            i,
-                            damage,
-                            special
-                        );
-                        damage_targets.push((false, i, damage as f32));
-                    }
+            if let Some(s_idx) = self.find_sector_at(t.position)
+                && s_idx < self.sectors.len()
+            {
+                let special = self.sectors[s_idx].special_type;
+                let damage = match special {
+                    5 | 7 | 16 | 4 | 11 => 5,
+                    _ => 0,
+                };
+                if damage > 0 {
+                    log::info!(
+                        "Thing {} taking slime damage: {} (Sector Special {})",
+                        i,
+                        damage,
+                        special
+                    );
+                    damage_targets.push((false, i, damage as f32));
                 }
             }
         }
@@ -6413,4 +6388,5 @@ pub const DEFAULT_THING_DEFS: &[(u16, ThingDef)] = &[
     ),
 ];
 
+#[allow(dead_code)]
 pub fn init_world(_world: &mut WorldState) {}

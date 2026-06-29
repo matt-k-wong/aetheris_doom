@@ -95,10 +95,10 @@ pub async fn run_game(
     let is_update_goldens = args.iter().any(|arg| arg == "--update-goldens");
 
     let mut target_wad = "freedoom1.wad".to_string();
-    if let Some(idx) = args.iter().position(|a| a == "--wad") {
-        if idx + 1 < args.len() {
-            target_wad = args[idx + 1].clone();
-        }
+    if let Some(idx) = args.iter().position(|a| a == "--wad")
+        && idx + 1 < args.len()
+    {
+        target_wad = args[idx + 1].clone();
     }
 
     // Initialize the simulation (The World) from WAD via Warehouse
@@ -313,11 +313,8 @@ pub async fn run_game(
                 }
                 #[cfg(not(target_os = "macos"))]
                 {
-                    if mapped_key.is_none() {
-                        match keyboard_input.scancode {
-                            1 => mapped_key = Some(VirtualKeyCode::Escape), // Generic fallback
-                            _ => {}
-                        }
+                    if mapped_key.is_none() && keyboard_input.scancode == 1 {
+                        mapped_key = Some(VirtualKeyCode::Escape); // Generic fallback
                     }
                 }
 
@@ -407,12 +404,10 @@ pub async fn run_game(
                                 world.menu_state = aetheris::simulation::MenuState::None;
                                 _engine_state = EngineState::Playing;
                             }
-                            if key == VirtualKeyCode::Up || key == VirtualKeyCode::W {
-                                if world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
-                            }
-                            if key == VirtualKeyCode::Down || key == VirtualKeyCode::S {
-                                if world.menu_selection < main_options.len() - 1 { world.menu_selection += 1; _menu_cooldown = 10; }
-                            }
+                            if (key == VirtualKeyCode::Up || key == VirtualKeyCode::W)
+                                && world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
+                            if (key == VirtualKeyCode::Down || key == VirtualKeyCode::S)
+                                && world.menu_selection < main_options.len() - 1 { world.menu_selection += 1; _menu_cooldown = 10; }
                             if key == VirtualKeyCode::Return || key == VirtualKeyCode::Space {
                                 match world.menu_selection {
                                     0 => { world.menu_state = aetheris::simulation::MenuState::EpisodeSelect; world.menu_selection = 0; },
@@ -428,12 +423,10 @@ pub async fn run_game(
                                 world.menu_state = aetheris::simulation::MenuState::Main;
                                 world.menu_selection = 0;
                             }
-                            if key == VirtualKeyCode::Up || key == VirtualKeyCode::W {
-                                if world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
-                            }
-                            if key == VirtualKeyCode::Down || key == VirtualKeyCode::S {
-                                if world.menu_selection < 3 { world.menu_selection += 1; _menu_cooldown = 10; }
-                            }
+                            if (key == VirtualKeyCode::Up || key == VirtualKeyCode::W)
+                                && world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
+                            if (key == VirtualKeyCode::Down || key == VirtualKeyCode::S)
+                                && world.menu_selection < 3 { world.menu_selection += 1; _menu_cooldown = 10; }
                             if key == VirtualKeyCode::Return || key == VirtualKeyCode::Space {
                                 world.menu_state = aetheris::simulation::MenuState::DifficultySelect;
                                 world.menu_selection = 2; // Default to 'Hurt Me Plenty'
@@ -444,12 +437,10 @@ pub async fn run_game(
                                 world.menu_state = aetheris::simulation::MenuState::EpisodeSelect;
                                 world.menu_selection = 0;
                             }
-                            if key == VirtualKeyCode::Up || key == VirtualKeyCode::W {
-                                if world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
-                            }
-                            if key == VirtualKeyCode::Down || key == VirtualKeyCode::S {
-                                if world.menu_selection < 4 { world.menu_selection += 1; _menu_cooldown = 10; }
-                            }
+                            if (key == VirtualKeyCode::Up || key == VirtualKeyCode::W)
+                                && world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
+                            if (key == VirtualKeyCode::Down || key == VirtualKeyCode::S)
+                                && world.menu_selection < 4 { world.menu_selection += 1; _menu_cooldown = 10; }
                             if key == VirtualKeyCode::Return || key == VirtualKeyCode::Space {
                                 // Reset game for new game
                                 current_map_index = 1;
@@ -495,12 +486,10 @@ pub async fn run_game(
                                 world.menu_state = aetheris::simulation::MenuState::None;
                                 _engine_state = EngineState::Playing;
                             }
-                            if key == VirtualKeyCode::Up || key == VirtualKeyCode::W {
-                                if world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
-                            }
-                            if key == VirtualKeyCode::Down || key == VirtualKeyCode::S {
-                                if world.menu_selection < 5 { world.menu_selection += 1; _menu_cooldown = 10; }
-                            }
+                            if (key == VirtualKeyCode::Up || key == VirtualKeyCode::W)
+                                && world.menu_selection > 0 { world.menu_selection -= 1; _menu_cooldown = 10; }
+                            if (key == VirtualKeyCode::Down || key == VirtualKeyCode::S)
+                                && world.menu_selection < 5 { world.menu_selection += 1; _menu_cooldown = 10; }
                             if key == VirtualKeyCode::Return || key == VirtualKeyCode::Space {
                                 let slot = world.menu_selection + 1;
                                 let filename = format!("save{}.json", slot);
@@ -542,9 +531,9 @@ pub async fn run_game(
                         world.is_automap = !world.is_automap;
                     }
                     if key == VirtualKeyCode::F5 { let _ = aetheris::infrastructure::savegame::io::quick_save(&world); }
-                    if key == VirtualKeyCode::F9 {
-                        if let Ok(json) = aetheris::infrastructure::savegame::io::quick_load() {
-                            if let Ok(mut loaded_world) = serde_json::from_str::<aetheris::simulation::WorldState>(&json) {
+                    if key == VirtualKeyCode::F9
+                        && let Ok(json) = aetheris::infrastructure::savegame::io::quick_load()
+                            && let Ok(mut loaded_world) = serde_json::from_str::<aetheris::simulation::WorldState>(&json) {
                                 loaded_world.textures = world.textures.clone();
                                 loaded_world.thinkers.clear();
                                 world = loaded_world;
@@ -552,8 +541,6 @@ pub async fn run_game(
                                 renderer.on_map_loaded(&world);
                                 intermission_timer = 0.0;
                             }
-                        }
-                    }
 
                     if world.is_intermission && intermission_timer > 1.0 &&
                        (key == VirtualKeyCode::Space || key == VirtualKeyCode::Return ||
