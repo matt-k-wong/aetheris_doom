@@ -11,7 +11,7 @@ impl PresentationMapper {
         thing: &Thing,
         player_pos: glam::Vec2,
         _frame_count: u64,
-        world: &aetheris::simulation::WorldState,
+        _world: &aetheris::simulation::WorldState,
     ) -> Vec<String> {
         // For things with state machine (monsters, barrels), use the state's sprite+frame directly
         let (sprite, frame) = if (thing.is_monster() || thing.is_barrel())
