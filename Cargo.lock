@@ -36,7 +36,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 [[package]]
 name = "aetheris"
 version = "0.1.0"
-source = "git+https://github.com/matt-k-wong/aetheris_game_engine.git#80a14fd5776638fe8aae17792db3f9f065349679"
+source = "git+https://github.com/matt-k-wong/aetheris_game_engine.git?rev=80a14fd5776638fe8aae17792db3f9f065349679#80a14fd5776638fe8aae17792db3f9f065349679"
 dependencies = [
  "anyhow",
  "async-trait",
