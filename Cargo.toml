@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-aetheris = { git = "https://github.com/matt-k-wong/aetheris_game_engine.git" }
+aetheris = { git = "https://github.com/matt-k-wong/aetheris_game_engine.git", rev = "80a14fd5776638fe8aae17792db3f9f065349679" }
 env_logger = "0.10"
 log = "0.4"
 winit = "0.28"
