@@ -344,8 +344,17 @@ pub const EFFECT_BLOOD_GREEN: u16 = 9997;
 pub const EFFECT_PUFF: u16 = 9998;
 
 // Doom-style RNG and Pain Chance
-// Doom uses a 256-byte lookup table with a prng index that advances each call
-static mut PRND_INDEX: usize = 0;
+// Doom uses a 256-byte lookup table with a prng index that advances each call.
+//
+// The index is stored in a `thread_local!` `Cell<usize>` rather than a
+// `static mut`. The DOOM simulation is single-threaded, so a thread-local
+// `Cell` preserves the exact single-threaded call order and sequence with zero
+// `unsafe`, while eliminating the mutable-global aliasing / data-race UB of the
+// previous `static mut`. (An `AtomicUsize` would also be sound, but a
+// thread-local cell is the cleaner match for per-run determinism.)
+thread_local! {
+    static PRND_INDEX: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 #[rustfmt::skip]
 const PRND_TABLE: [u8; 256] = [
@@ -369,25 +378,21 @@ const PRND_TABLE: [u8; 256] = [
 
 /// Doom's P_Random - returns 0-255 using lookup table
 pub fn p_random() -> u8 {
-    unsafe {
-        let val = PRND_TABLE[PRND_INDEX];
-        PRND_INDEX = (PRND_INDEX + 1) % 256;
+    PRND_INDEX.with(|idx| {
+        let val = PRND_TABLE[idx.get()];
+        idx.set((idx.get() + 1) % 256);
         val
-    }
+    })
 }
 
 /// Reset the RNG to a known state for testing
 pub fn reset_rng() {
-    unsafe {
-        PRND_INDEX = 0;
-    }
+    PRND_INDEX.with(|idx| idx.set(0));
 }
 
 /// Reset the RNG to a specific state for deterministic testing
 pub fn reset_rng_to(index: usize) {
-    unsafe {
-        PRND_INDEX = index % 256;
-    }
+    PRND_INDEX.with(|idx| idx.set(index % 256));
 }
 
 /// Pain chance values (0-255) for each monster type
@@ -6414,3 +6419,27 @@ pub const DEFAULT_THING_DEFS: &[(u16, ThingDef)] = &[
 ];
 
 pub fn init_world(_world: &mut WorldState) {}
+
+#[cfg(test)]
+mod rng_tests {
+    use super::{PRND_TABLE, p_random, reset_rng};
+
+    #[test]
+    fn p_random_starts_at_table_head() {
+        reset_rng();
+        assert_eq!(p_random(), 0);
+        assert_eq!(p_random(), 8);
+        assert_eq!(p_random(), 109);
+    }
+
+    #[test]
+    fn p_random_wraps_after_256_calls() {
+        reset_rng();
+        let first_round: Vec<u8> = (0..256).map(|_| p_random()).collect();
+        assert_eq!(first_round.as_slice(), &PRND_TABLE[..]);
+
+        // After 256 calls the index wraps back to the start of the table.
+        assert_eq!(p_random(), PRND_TABLE[0]);
+        assert_eq!(p_random(), PRND_TABLE[1]);
+    }
+}
