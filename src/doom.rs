@@ -1,3 +1,15 @@
+// This file is part of aetheris_doom and is licensed under the GNU GPL version 2.
+//
+// It contains material derived from id Software's DOOM source code (GPLv2),
+// specifically:
+//   - state machine identifiers and states[] table (info.h / info.c)
+//   - actor / mobjinfo[] stats (info.c)
+//   - monster action functions (p_enemy.c)
+//   - random-number lookup table (m_random.c)
+//
+// Copyright (C) id Software, Inc. (original DOOM source)
+// SPDX-License-Identifier: GPL-2.0-only
+
 use aetheris::simulation::*;
 use glam::{Mat2, Vec2};
 use std::collections::HashMap;
