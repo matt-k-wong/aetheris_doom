@@ -3270,11 +3270,32 @@ impl MonsterThinker {
 
         match action {
             MonsterAction::Look => {
-                // Monsters wake up if:
-                // 1. Player is within noise radius AND has line of sight, OR
-                // 2. Player is within sight radius (increased to 3000 for better aggro) AND has line of sight
+                // Vanilla A_Look (P_LookForPlayers): a monster only *sees* a target
+                // that lies within its forward 180-degree field of view, unless the
+                // target is within melee range (the "react if it's real close" case).
+                // A target heard through sound propagation (within_noise) wakes the
+                // monster regardless of facing — that mirrors vanilla's soundtarget
+                // path, which here is fed by `world.player.noise_radius`.
                 let within_noise = target_dist < world.player.noise_radius;
-                let within_sight_range = target_dist < 3000.0;
+
+                // Relative angle between the monster's facing and the bearing to the
+                // target, normalized to [-PI, PI]. |rel| <= 90deg means the target is
+                // somewhere in the front 180-degree cone.
+                let to_target = target_pos - monster.position;
+                let ang_to_target = to_target.y.atan2(to_target.x);
+                let mut rel = ang_to_target - monster.angle;
+                while rel > std::f32::consts::PI {
+                    rel -= std::f32::consts::TAU;
+                }
+                while rel < -std::f32::consts::PI {
+                    rel += std::f32::consts::TAU;
+                }
+                let in_fov = rel.abs() <= std::f32::consts::FRAC_PI_2;
+                // Vanilla MELEERANGE (64 map units): targets this close wake the
+                // monster even when they are behind it.
+                const MELEERANGE: f32 = 64.0;
+                let within_sight_range =
+                    target_dist < 3000.0 && (in_fov || target_dist < MELEERANGE);
 
                 if (within_noise || within_sight_range)
                     && world.has_line_of_sight(monster.position, target_pos)
@@ -3430,12 +3451,20 @@ impl MonsterThinker {
             }
             MonsterAction::PosAttack => {
                 let dir = (target_pos - monster.position).normalize_or_zero();
-                let angle = dir.y.atan2(dir.x);
-                let spread = (p_random() as f32 - 128.0) / 256.0 * 0.1;
+                let base_angle = dir.y.atan2(dir.x);
+                // Vanilla A_PosAttack: angle += (P_Random()-P_Random())<<20, then
+                // damage = ((P_Random()%5)+1)*3. Keep the three P_Random() calls in
+                // the same order so the shared RNG stream tracks vanilla.
+                // In Doom's BAM angles, a delta d shifted <<20 covers d/4096 of a
+                // full turn, i.e. (d * TAU / 4096) radians.
+                let r1 = p_random() as f32;
+                let r2 = p_random() as f32;
+                let spread = (r1 - r2) * (std::f32::consts::TAU / 4096.0);
+                let damage = ((p_random() % 5) + 1) as f32 * 3.0;
                 cmds.push(WorldCommand::FireHitscan {
                     origin: monster.position,
-                    angle: angle + spread,
-                    damage: 10.0,
+                    angle: base_angle + spread,
+                    damage,
                     attacker_idx: Some(self.thing_idx),
                 });
                 cmds.push(WorldCommand::SpawnAudioEvent(AudioEvent {
@@ -3444,11 +3473,39 @@ impl MonsterThinker {
                     volume: 1.0,
                 }));
             }
+            MonsterAction::SPosAttack => {
+                // Vanilla A_SPosAttack (shotgun guy): fires THREE pellets, each with
+                // its own spread (P_Random()-P_Random())<<20 and damage
+                // ((P_Random()%5)+1)*3 — nine P_Random() calls total, in order.
+                // Previously this fell through to the no-op arm, so shotgun guys
+                // never dealt damage.
+                let dir = (target_pos - monster.position).normalize_or_zero();
+                let base_angle = dir.y.atan2(dir.x);
+                cmds.push(WorldCommand::SpawnAudioEvent(AudioEvent {
+                    sound_id: "DSSHOTGN".into(),
+                    position: Some(monster.position),
+                    volume: 1.0,
+                }));
+                for _ in 0..3 {
+                    let r1 = p_random() as f32;
+                    let r2 = p_random() as f32;
+                    let spread = (r1 - r2) * (std::f32::consts::TAU / 4096.0);
+                    let damage = ((p_random() % 5) + 1) as f32 * 3.0;
+                    cmds.push(WorldCommand::FireHitscan {
+                        origin: monster.position,
+                        angle: base_angle + spread,
+                        damage,
+                        attacker_idx: Some(self.thing_idx),
+                    });
+                }
+            }
             MonsterAction::TroopAttack => {
                 let dir = (target_pos - monster.position).normalize_or_zero();
                 if target_dist < 72.0 {
+                    // Vanilla A_TroopAttack melee: damage = (P_Random()%8+1)*3.
+                    let damage = ((p_random() % 8) + 1) as f32 * 3.0;
                     cmds.push(WorldCommand::DamagePlayer {
-                        amount: 10.0,
+                        amount: damage,
                         angle: Some(dir.y.atan2(dir.x)),
                     });
                     cmds.push(WorldCommand::SpawnAudioEvent(AudioEvent {
