@@ -148,28 +148,6 @@ pub async fn run_game(
     let mut world = loader.load_map(&_map_name)?;
     loader.load_textures(&mut world)?;
 
-    // Spawn a test monster 200 units right in front of the player
-    let p_pos = world.player.position;
-    let p_angle = world.player.angle;
-    let test_pos = glam::Vec2::new(
-        p_pos.x + 200.0 * p_angle.cos(),
-        p_pos.y + 200.0 * p_angle.sin(),
-    );
-    let test_monster = aetheris::simulation::Thing {
-        position: test_pos,
-        z: 0.0,
-        angle: p_angle + std::f32::consts::PI,
-        kind: 3004, // Zombieman
-        flags: 0,
-        health: 20.0,
-        picked_up: false,
-        state_idx: crate::doom::get_start_state(3004),
-        ai_timer: 0,
-        target_thing_idx: None,
-        attack_cooldown: 0,
-    };
-    world.things.push(test_monster);
-
     // Determine backend and test modes
     // (args parsed above)
 
@@ -322,7 +300,6 @@ pub async fn run_game(
                 }
 
                 if let Some(key) = mapped_key {
-                    log::info!("RAW KEY INPUT: {:?} {:?}", key, state);
                 if state == ElementState::Pressed {
                     if !input.pressed_keys.insert(key) { return; }
                     if key == VirtualKeyCode::F12 {
@@ -719,6 +696,7 @@ pub async fn run_game(
                 let _ = renderer.render_automap(&world);
                 // Removed temporary turning code
                 let _ = renderer.present();
+                #[cfg(debug_assertions)]
                 profiler.print_histogram();
                 telemetry.snapshot(&world);
 
