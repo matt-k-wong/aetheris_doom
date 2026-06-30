@@ -3175,6 +3175,7 @@ pub const DEFAULT_STATES: &[MobjState] = &[
     },
 ];
 
+#[allow(dead_code)]
 pub fn get_start_state(kind: u16) -> usize {
     match kind {
         3004 => S_POSS_STND,  // Zombieman
@@ -5878,7 +5879,7 @@ impl DoomWorldExt for WorldState {
             let s = &self.sectors[sector_idx];
             (s.floor_height, s.ceiling_height, s.action.clone())
         };
-        log::info!(
+        log::debug!(
             "DEBUG: trigger_door called for sector {} (ceil={}, floor={}, action={:?})",
             sector_idx,
             ceil,
@@ -5891,7 +5892,7 @@ impl DoomWorldExt for WorldState {
                 if ceil <= floor + 4.0 {
                     // Opening
                     let target = self.find_lowest_adjacent_ceiling(sector_idx) - 4.0;
-                    log::info!(
+                    log::debug!(
                         "DEBUG: Door opening in sector {} to height {}",
                         sector_idx,
                         target
@@ -5906,7 +5907,7 @@ impl DoomWorldExt for WorldState {
                     return true;
                 } else {
                     // Closing
-                    log::info!("DEBUG: Door closing in sector {}", sector_idx);
+                    log::debug!("DEBUG: Door closing in sector {}", sector_idx);
                     self.sectors[sector_idx].action = SectorAction::Door {
                         state: DoorState::Closing,
                         wait_timer: 0.0,
@@ -5924,7 +5925,7 @@ impl DoomWorldExt for WorldState {
                 ..
             } => match state {
                 DoorState::Waiting => {
-                    log::info!("DEBUG: Door closing early in sector {}", sector_idx);
+                    log::debug!("DEBUG: Door closing early in sector {}", sector_idx);
                     self.sectors[sector_idx].action = SectorAction::Door {
                         state: DoorState::Closing,
                         wait_timer: 0.0,
@@ -5935,7 +5936,7 @@ impl DoomWorldExt for WorldState {
                     return true;
                 }
                 DoorState::Closing => {
-                    log::info!("DEBUG: Door reversing to open in sector {}", sector_idx);
+                    log::debug!("DEBUG: Door reversing to open in sector {}", sector_idx);
                     self.sectors[sector_idx].action = SectorAction::Door {
                         state: DoorState::Opening,
                         wait_timer: wait,
@@ -5946,7 +5947,7 @@ impl DoomWorldExt for WorldState {
                     return true;
                 }
                 _ => {
-                    log::info!(
+                    log::debug!(
                         "DEBUG: Door in sector {} is already busy in state {:?}",
                         sector_idx,
                         state
@@ -5955,7 +5956,7 @@ impl DoomWorldExt for WorldState {
                 }
             },
             _ => {
-                log::info!(
+                log::debug!(
                     "DEBUG: Sector {} is busy with non-door action: {:?}",
                     sector_idx,
                     action
