@@ -4078,10 +4078,6 @@ impl DoomWorldExt for WorldState {
             return;
         }
 
-        if self.menu_state != MenuState::None && self.frame_count % 35 == 0 {
-            log::info!("MENU ACTIVE: Press ESC/ENTER to start map or use ARROWS/WASD to navigate.");
-        }
-
         if self.is_intermission {
             return;
         }
@@ -4306,26 +4302,31 @@ impl DoomWorldExt for WorldState {
         }
 
         let mut next_weapon = self.player.current_weapon;
+        // A weapon can only be selected if the player owns it and has ammo for it.
+        let can_select = |w: WeaponType| -> bool {
+            self.player.owned_weapons[w as usize]
+                && weapon_ammo_type(w).is_none_or(|idx| self.player.ammo[idx] > 0)
+        };
         if actions.contains(&GameAction::Weapon1) {
-            next_weapon = WeaponType::Fist;
+            // Slot 1 prefers the chainsaw when owned, but the fist while berserk.
+            if can_select(WeaponType::Chainsaw) && self.player.berserk_timer == 0 {
+                next_weapon = WeaponType::Chainsaw;
+            } else {
+                next_weapon = WeaponType::Fist;
+            }
         }
-        if actions.contains(&GameAction::Weapon2) {
-            next_weapon = WeaponType::Pistol;
-        }
-        if actions.contains(&GameAction::Weapon3) {
-            next_weapon = WeaponType::Shotgun;
-        }
-        if actions.contains(&GameAction::Weapon4) {
-            next_weapon = WeaponType::Chaingun;
-        }
-        if actions.contains(&GameAction::Weapon5) {
-            next_weapon = WeaponType::RocketLauncher;
-        }
-        if actions.contains(&GameAction::Weapon6) {
-            next_weapon = WeaponType::PlasmaRifle;
-        }
-        if actions.contains(&GameAction::Weapon7) {
-            next_weapon = WeaponType::BFG9000;
+        let slots = [
+            (GameAction::Weapon2, WeaponType::Pistol),
+            (GameAction::Weapon3, WeaponType::Shotgun),
+            (GameAction::Weapon4, WeaponType::Chaingun),
+            (GameAction::Weapon5, WeaponType::RocketLauncher),
+            (GameAction::Weapon6, WeaponType::PlasmaRifle),
+            (GameAction::Weapon7, WeaponType::BFG9000),
+        ];
+        for (action, weapon) in slots {
+            if actions.contains(&action) && can_select(weapon) {
+                next_weapon = weapon;
+            }
         }
 
         let mut next_weapon_state = self.player.weapon_state;
@@ -5278,6 +5279,7 @@ impl DoomWorldExt for WorldState {
                             if let Some(thing) = self.things.get_mut(thing_idx) {
                                 thing.picked_up = true;
                             }
+                            self.items_collected += 1;
                             self.player.bonus_flash = 0.4;
                             self.audio_events.push(AudioEvent {
                                 sound_id: "DSGETPOW".into(),
@@ -5297,7 +5299,11 @@ impl DoomWorldExt for WorldState {
                         inflictor_idx.and_then(|idx| self.things.get(idx).map(|th| th.kind));
 
                     if let Some(t) = self.things.get_mut(thing_idx) {
+                        let was_alive = t.health > 0.0;
                         t.health -= amount;
+                        if was_alive && t.health <= 0.0 && t.is_monster() {
+                            self.monsters_killed += 1;
+                        }
                         for thinker in &mut self.thinkers {
                             thinker.on_pain(thing_idx, t_kind, inflictor_idx, i_kind);
                         }
@@ -5305,6 +5311,7 @@ impl DoomWorldExt for WorldState {
                 }
                 WorldCommand::DamagePlayer { amount, angle } => {
                     if self.player.invuln_timer == 0 {
+                        let was_alive = self.player.health > 0.0;
                         let absorbed = (amount * 0.333).min(self.player.armor);
                         self.player.armor -= absorbed;
                         self.player.health -= amount - absorbed;
@@ -5312,6 +5319,13 @@ impl DoomWorldExt for WorldState {
                             self.player.damage_flash = 0.5;
                         }
                         self.player.last_damage_angle = angle;
+                        if was_alive && self.player.health <= 0.0 {
+                            self.hud_messages.push(HudMessage {
+                                text: "You died! Press FIRE to respawn.".to_string(),
+                                timer: 30.0,
+                                color: [255, 60, 60],
+                            });
+                        }
                     }
                 }
                 WorldCommand::DamageThingsInSector { sector_idx, amount } => {
@@ -5492,6 +5506,7 @@ impl DoomWorldExt for WorldState {
                 }
                 WorldCommand::Win => self.is_win = true,
                 WorldCommand::RespawnPlayer => {
+                    self.hud_messages.clear();
                     self.player.health = 100.0;
                     self.player.position = self.player_start_pos;
                     self.player.velocity = Vec2::ZERO;
@@ -6414,3 +6429,31 @@ pub const DEFAULT_THING_DEFS: &[(u16, ThingDef)] = &[
 ];
 
 pub fn init_world(_world: &mut WorldState) {}
+
+/// Skill levels as chosen on the "CHOOSE SKILL" menu (0 = I'm Too Young To Die
+/// ... 4 = Nightmare!). Mirrors the vanilla thing-flag skill bits.
+pub fn skill_flag_bit(skill: usize) -> u16 {
+    match skill {
+        0 | 1 => 0x0001, // Easy
+        2 => 0x0002,     // Medium
+        _ => 0x0004,     // Hard / Nightmare
+    }
+}
+
+/// Removes things that should not spawn at the chosen skill level (and
+/// multiplayer-only things), then records the level totals shown on the
+/// intermission tally screen. Call right after a map is loaded, before
+/// thinkers are spawned.
+pub fn apply_skill_and_count_totals(world: &mut WorldState, skill: usize) {
+    const MTF_NOT_SINGLE: u16 = 0x0010;
+    let skill_bit = skill_flag_bit(skill);
+    world
+        .things
+        .retain(|t| (t.flags & MTF_NOT_SINGLE) == 0 && (t.flags & skill_bit) != 0);
+
+    world.monsters_killed = 0;
+    world.items_collected = 0;
+    world.secrets_found = 0;
+    world.total_monsters = world.things.iter().filter(|t| t.is_monster()).count() as u32;
+    world.total_items = world.things.iter().filter(|t| t.is_pickup()).count() as u32;
+}

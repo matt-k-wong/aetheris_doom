@@ -30,7 +30,12 @@ only cover non-obvious, environment-specific caveats.
 - Use the `--release` binary for interactive play; the software rasterizer is too slow
   in a `dev` build for real-time gameplay.
 - `freedoom1.wad` (committed at repo root) is loaded by default, so the game runs with no
-  extra asset setup. Pass `--wad <FILE>` to use another WAD.
+  extra asset setup. Pass `--wad <FILE>` to use another WAD (DOOM 2 `MAPxx` WADs work too).
+- The game boots into the **main menu** (Enter to navigate: New Game → episode → skill).
+  Test modes (`--golden-test` / `--update-goldens`) skip the menu and drive gameplay
+  directly. The mouse is captured during gameplay; Esc opens the menu and releases it.
+- Performance histograms and telemetry.json export are opt-in now: pass `--profile`
+  and/or `--telemetry`.
 
 ### Audio is expected to fail in this VM
 - There is no audio output device, so on startup the game logs

@@ -62,6 +62,36 @@ By default, the engine loads `freedoom1.wad`. You can specify a different commer
 cargo run --release -- --wad DOOM1.WAD
 ```
 
+Both DOOM 1 style (`ExMy`) and DOOM 2 style (`MAPxx`) WADs are detected and supported automatically.
+
+Run with `--help` for the full list of options (including `--profile` for performance
+histograms and `--telemetry` for periodic world-state snapshots).
+
+---
+
+## 🎮 Controls
+
+| Input | Action |
+|---|---|
+| `W`/`S` or `Up`/`Down` | Move forward / backward |
+| `A`/`D` | Strafe left / right |
+| `Left`/`Right` | Turn (hold `Alt` or `Z` to strafe instead) |
+| **Mouse** | Turn; **left button** fires |
+| `Ctrl` or `Space` | Fire |
+| `E` or `F` | Use (open doors, flip switches) |
+| `1`–`7` | Select weapon (`1` toggles fist/chainsaw) |
+| `Tab` | Toggle automap (`+`/`-` to zoom) |
+| `P` | Pause |
+| `Esc` | Open / close the menu |
+| `F2` / `F3` | Save / load game menu (6 slots) |
+| `F5` / `F9` | Quicksave / quickload |
+| `F12` | Screenshot |
+
+The mouse is captured while playing and released whenever a menu is open.
+
+Classic cheat codes work too: `iddqd` (invulnerability), `idkfa` (weapons, ammo, keys),
+`idfa` (weapons and ammo), and `idclev##` (level warp, e.g. `idclev13` for E1M3).
+
 ---
 
 ## 🎸 Authentic Music (GPL OPL3 Emulation)
@@ -92,12 +122,15 @@ Aetheris DOOM is an exploration into applying classic game state behaviors to mo
 
 **What works great:**
 * Authentic CPU Software Rasterization (True 1993 feel)
-* Full WAD file parsing (Levels, Textures, Flats, Sprites)
+* Full WAD file parsing (Levels, Textures, Flats, Sprites) for both DOOM 1 and DOOM 2 map naming
 * Spatial 3D Audio (`rodio`) and OPL3 Music Synth (Chocolate DOOM emulation)
 * Core AI state machines for DOOM monsters
+* Difficulty selection (skill-based monster spawns), mouse look, full menu flow, six save slots plus quicksave, intermission kill/item/secret tallies
 
 **Known Issues / Roadmap:**
-* **Game Menus:** The main menu is currently minimal (supporting only 'New Game' and 'Quit'). Save/Load functionality and deeper options menus are planned but not yet implemented.
+* **Secret exits:** Secret levels (e.g. E1M9) are not reachable yet; level progression is linear.
+* **Options menu:** Limited to master volume and field of view for now; more renderer settings are planned.
+* **Savegames** restore the world but not the level-progression counter, so finishing a loaded level advances from the level you were on when the game was saved.
 * **Advanced Modding (DeHackEd):** Support for advanced DOOM modding capabilities and custom PWAD logic (like DeHackEd or ZScript) is currently stubbed out or only partially implemented.
 * **Visual Artifacts:** You may encounter minor visual bugs or texture popping during intense gameplay or when viewing complex architecture. We are still actively stress-testing the renderer against community megawads.
 

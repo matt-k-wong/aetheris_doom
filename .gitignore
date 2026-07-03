@@ -24,3 +24,9 @@ TNT.WAD
 .DS_Store
 telemetry.json
 .cargo
+
+# Runtime output (saves, screenshots, golden-test diffs)
+savegame.json
+save[0-9].json
+screenshot_*.png
+diff_*.png
