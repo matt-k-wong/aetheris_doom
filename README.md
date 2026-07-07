@@ -41,7 +41,7 @@ Because this repository strictly contains game logic and adheres to copyright la
 Place your chosen `.WAD` file directly in the root of the repository.
 
 **Where to get a WAD:**
-1. **[Freedoom (Recommended & Included)](https://freedoom.github.io/download.html):** A completely free, open-source set of assets compatible with the DOOM engine. We have included `freedoom1.wad` in this repository for out-of-the-box testing!
+1. **[Freedoom (Recommended)](https://freedoom.github.io/download.html):** A completely free, open-source set of assets compatible with the DOOM engine. Run `./scripts/download-wad.sh` from the repo root to fetch `freedoom1.wad`, or place your own WAD file in the root directory.
 2. **[DOOM 1 Shareware](https://www.doomworld.com/idgames/idstuff/doom/doom19s):** The original, legally free shareware version of DOOM (`DOOM1.WAD`) containing the first episode (Knee-Deep in the Dead).
 3. **Commercial DOOM:** If you own DOOM on Steam or GOG, you can navigate to the installation folder and copy `DOOM.WAD` or `DOOM2.WAD`.
 

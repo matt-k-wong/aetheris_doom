@@ -16,11 +16,13 @@ archives/
 *.lmp
 temp_*.png
 
-# Ignore commercial doom WADs but allow freedoom
+# Ignore commercial DOOM WADs and downloaded Freedoom assets (use scripts/download-wad.sh)
 [dD][oO][oO][mM]*.wad
 [dD][oO][oO][mM]*.WAD
 PLUTONIA.WAD
 TNT.WAD
+freedoom*.wad
+freedoom*.WAD
 .DS_Store
 telemetry.json
 .cargo
